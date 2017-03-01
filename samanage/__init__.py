@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
+import sys
 import json
 import urllib
 import logging
 import argparse
 import requests
+from pprint import pprint
 
 class Record(object):
     def __init__(self, json_payload):
@@ -111,14 +113,14 @@ class Samanage(object):
             return '{}/{}/{}.json'.format(self.uri, record_type, record_id) 
         return '{}/{}.json'.format(self.uri, record_type) 
 
-    def _get_uri(self, record_type, count=25, record_id=None, search={}):
-        '''build the uri with correct parameters'''
-        uri = self._uri(record_type, record_id)
-        search['per_page'] = count
-        if search:
-            uri += '?{}'.format(urllib.urlencode(search))
-            self.logger.debug('add search paramter: {}'.format(uri))
-        return uri
+    #def _get_uri(self, record_type, pagesize=100, record_id=None, search={}):
+    #    '''build the uri with correct parameters'''
+    #    uri = self._uri(record_type, record_id)
+    #    search['per_page'] = pagesize
+    #    if search:
+    #        uri += '?{}'.format(urllib.urlencode(search))
+    #        self.logger.debug('add search paramter: {}'.format(uri))
+    #    return uri
 
 
     def _check_response(self, response, record_type):
@@ -143,19 +145,39 @@ class Samanage(object):
             else:
                 return True
 
-    def _get_raw(self, uri, record_type, record_id=None):
+    def _get_raw(self, uri, record_type, record_id=None,count=None, pagesize=100, search=None):
         self.logger.debug('fetching uri:{}'.format(uri))    
-        response = self.session.get(uri)
-        return self._check_response(response, record_type)
+        page=1
+        data=[]
+        while True:
+            if count and len(data) + pagesize > count:
+                pagesize = count - len(data)
+            params={ 'per_page' : pagesize }
+            if search:
+                params.update(search)
+            if page > 1: 
+                params['page'] = page # how we tell samanage which page to get
+            response = self.session.get(uri,params=params)
+            checked = self._check_response(response, record_type)
+            if len(checked) == 0: # no data, we're done
+                break
+            data.extend(checked)
+            if count and len(data) == count:
+                break
+            if count and len(data) > count:
+                raise Exception("Got too many records.  This should never happen.")
+            page += 1
+        return data
 
     def _payload(self, payload, record_type):
         if isinstance(payload, Record):
             return { record_type[:-1] : payload.dump() }
         return { record_type[:-1] : payload }
 
-    def get(self, record_type, count=25, record_id=None, search={}):
-        uri = self._get_uri(record_type, count, record_id, search)
-        return self._get_raw(uri, record_type)
+    def get(self, record_type, count=None, pagesize=100, record_id=None, search={}):
+        #uri = self._get_uri(record_type, count, record_id, search)
+        uri = self._uri(record_type, record_id)
+        return self._get_raw(uri, record_type, count=count, pagesize=pagesize, search=search)
 
     def put(self, record_type, payload, record_id):
         if type(record_id) is not int:
