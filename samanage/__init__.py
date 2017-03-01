@@ -162,7 +162,9 @@ class Samanage(object):
             if len(checked) == 0: # no data, we're done
                 break
             data.extend(checked)
-            if count and len(data) == count:
+            if len(checked) < pagesize: # no need for another run
+                break
+            if count and len(data) == count: # perfect 
                 break
             if count and len(data) > count:
                 raise Exception("Got too many records.  This should never happen.")
