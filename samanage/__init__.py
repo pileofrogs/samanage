@@ -6,7 +6,12 @@ import urllib
 import logging
 import argparse
 import requests
+import inspect
 from pprint import pprint
+
+# todo
+#  get list of departments
+#  get list of hardware categories
 
 class Record(object):
     def __init__(self, json_payload):
@@ -80,6 +85,14 @@ class Hardware(Record):
                 client.uri, self.id, self.name.replace('.','-'))
         return client._get_raw(uri, 'incidents')
 
+def record_factory ( obj_name, init_args={} ):
+    def init ( self, **kwargs ):
+        init_args.update(kwargs)
+        for key, value in init_args.items():
+            setattr(self,key,value)
+
+    return type( obj_name, (Record,),{ '__init__': init} )
+
 
 class Samanage(object):
 
@@ -89,6 +102,7 @@ class Samanage(object):
             'departments': Department,
             'catalog_items': CatalogItems,
             'incidents': Incident,
+            'categories' : record_factory('Categories',{'onefish': 'twofish'})
             }
 
     def __init__(self, username, password, uri='https://api.samanage.com'):
@@ -125,10 +139,11 @@ class Samanage(object):
 
     def _check_response(self, response, record_type):
         results = []
-        if response.status_code != requests.codes.ok:
+        if not response:
             self.logger.error('HTTP {}:{}'.format(
                 response.status_code, response.text))
-            return False
+            response.raise_for_status()
+            return response
         else:
             if response.text.strip():
                 json_out = response.json()

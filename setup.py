@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(name='samanage',
-      version='1.0',
+      version='1.0.1',
       description='Library to interface with samanage',
       author='John Bond',
       author_email='pypi@johnbond.org',
