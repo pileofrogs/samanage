@@ -51,13 +51,12 @@ class Incident(Record):
         self.description_no_html = json_payload.get('description_no_html', '')
         self.requester           = json_payload.get('requester', '')
 
-
-class User(Record):
-    def __init__(self, json_payload):
-        super(User, self).__init__(json_payload)
-        self.title      = json_payload.get('title', '')
-        self.department = json_payload.get('department', '')
-        self.email      = json_payload.get('email', '')
+#class User(Record):
+#    def __init__(self, json_payload):
+#        super(User, self).__init__(json_payload)
+#        self.title      = json_payload.get('title', '')
+#        self.department = json_payload.get('department', '')
+#        self.email      = json_payload.get('email', '')
 
 class Hardware(Record):
     def __init__(self, json_payload):
@@ -86,8 +85,8 @@ class Hardware(Record):
         return client._get_raw(uri, 'incidents')
 
 def record_factory ( obj_name, init_args={} ):
-    def init ( self, **kwargs ):
-        init_args.update(kwargs)
+    def init ( self, payload ):
+        init_args.update(payload)
         for key, value in init_args.items():
             setattr(self,key,value)
 
@@ -97,8 +96,8 @@ def record_factory ( obj_name, init_args={} ):
 class Samanage(object):
 
     supported_types = {
-            'hardwares': Hardware,
-            'users': User,
+            'hardwares': record_factory('Hardware'),
+            'users': record_factory('User'),
             'departments': Department,
             'catalog_items': CatalogItems,
             'incidents': Incident,
@@ -117,7 +116,7 @@ class Samanage(object):
                 'Accept'       : 'application/vnd.samanage.v1.2+json',
                 'Content-Type' : 'application/json',
                 }
-        self.logger.debug('using credentials: {}/{}'.format(
+        self.logger.debug('Samanage obj created, credentials: {}/{}'.format(
             self.username, self.password))
 
     def _uri(self, record_type, record_id=None):
@@ -151,8 +150,7 @@ class Samanage(object):
                 self.logger.debug('Response Headers: {}'.format(response.headers))
                 if type(json_out) is list:
                     for record in json_out:
-                        results.append(
-                                self.supported_types.get(record_type, Record)(record))
+                        results.append(self.supported_types.get(record_type, Record)(record))
                 else:
                     results.append(
                             self.supported_types.get(record_type, Record)(json_out))
