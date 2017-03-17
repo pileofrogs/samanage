@@ -7,11 +7,8 @@ import logging
 import argparse
 import requests
 import inspect
+import re
 from pprint import pprint
-
-# todo
-#  get list of departments
-#  get list of hardware categories
 
 class Record(object):
     def __init__(self, json_payload):
@@ -98,10 +95,10 @@ class Samanage(object):
     supported_types = {
             'hardwares': record_factory('Hardware'),
             'users': record_factory('User'),
-            'departments': Department,
+            'departments': record_factory('Department'),
             'catalog_items': CatalogItems,
             'incidents': Incident,
-            'categories' : record_factory('Categories',{'onefish': 'twofish'})
+            'categories' : record_factory('Categories'),
             }
 
     def __init__(self, username, password, uri='https://api.samanage.com'):
@@ -213,7 +210,8 @@ class Samanage(object):
     def post(self, record_type, payload):
         uri = self._uri(record_type)
         response = self.session.post(uri, json=self._payload(payload, record_type))
-        return self._check_response(response, record_type)
+        turn = self._check_response(response, record_type)
+        return turn
 
 def main():
     parser = argparse.ArgumentParser(description='dns spoof monitoring script')
