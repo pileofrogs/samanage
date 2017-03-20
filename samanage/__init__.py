@@ -8,6 +8,11 @@ import argparse
 import requests
 import inspect
 
+'''
+TODO: 
+ - Handle awkward things with non-standard URIs
+'''
+
 class Record(object):
     def __init__(self, json_payload):
         self.id   = json_payload.get('id', None)
@@ -23,56 +28,6 @@ class Record(object):
     def dumps(self):
         return json.dumps(self, 
                 default=lambda o: {k: v for k,v in o.__dict__.items() if v})
-'''
-class CatalogItems(Record):
-    pass
-
-class Department(Record):
-    pass
-
-class Incident(Record):
-    def __init__(self, json_payload):
-        super(Incident, self).__init__(json_payload)
-        self.subcategory         = json_payload.get('subcategory', '')
-        self.updated_at          = json_payload.get('updated_at', '')
-        #This is a massive object, shuld parse it a bit better
-        #self.assignee           = json_payload.get('assignee', '')
-        self.href                = json_payload.get('href', '')
-        self.created_by          = json_payload.get('created_by', '')
-        self.created_at          = json_payload.get('created_at', '')
-        self.priority            = json_payload.get('priority', '')
-        self.state               = json_payload.get('state', '')
-        self.description         = json_payload.get('description', '')
-        self.description_no_html = json_payload.get('description_no_html', '')
-        self.requester           = json_payload.get('requester', '')
-'''
-
-#class User(Record):
-#    def __init__(self, json_payload):
-#        super(User, self).__init__(json_payload)
-#        self.title      = json_payload.get('title', '')
-#        self.department = json_payload.get('department', '')
-#        self.email      = json_payload.get('email', '')
-
-#class Hardware(Record):
-#    def __init__(self, json_payload):
-#        super(Hardware, self).__init__(json_payload)
-#        self.bio               = [{'ssn': ''}]
-#        self.address           = json_payload.get('address', '')
-#        self.asset_tag         = json_payload.get('asset_tag', '')
-#        self.category          = json_payload.get('category', '')
-#        self.department        = json_payload.get('department', '')
-#        self.description       = json_payload.get('description', '')
-#        self.domain            = json_payload.get('domain', '')
-#        self.ip                = json_payload.get('ip', '')
-#        self.latitude          = json_payload.get('latitude', '')
-#        self.longitude         = json_payload.get('longitude', '')
-#        self.networks          = json_payload.get('networks', '')
-#        self.notes             = json_payload.get('notes', '')
-#        self.owner             = json_payload.get('owner', '')
-#        self.status            = json_payload.get('status', '')
-#        self.technical_contact = json_payload.get('technical_contact', '')
-#        self.username          = json_payload.get('username', '')
 
 def get_incidents(self, client):
     '''get a list of incidents using the client passed'''
@@ -86,21 +41,13 @@ def record_factory ( obj_name, init_args={}, methods={}):
         init_args.update(payload)
         for key, value in init_args.items():
             setattr(self,key,value)
-
     methods['__init__'] = init
-
     return type( obj_name, (Record,),methods )
-
 
 class Samanage(object):
 
     supported_types = {
-            'hardwares': record_factory('Hardware'),
-            'users': record_factory('User'),
-            'departments': record_factory('Department'),
-            'catalog_items': record_factory('CatalogItems'),
             'incidents': record_factory('Incidents',methods = { 'get_incidents' : get_incidents }),
-            'categories' : record_factory('Categories'),
             }
 
     def __init__(self, username, password, uri='https://api.samanage.com'):
@@ -120,20 +67,11 @@ class Samanage(object):
 
     def _uri(self, record_type, record_id=None):
         if record_type not in self.supported_types:
-            raise ValueError('{} not supported'.format(record_type))
+            #raise ValueError('{} not supported'.format(record_type))
+            self.supported_types[record_type] = record_factory(record_type.title())
         if record_id:
             return '{}/{}/{}.json'.format(self.uri, record_type, record_id) 
         return '{}/{}.json'.format(self.uri, record_type) 
-
-    #def _get_uri(self, record_type, pagesize=100, record_id=None, search={}):
-    #    '''build the uri with correct parameters'''
-    #    uri = self._uri(record_type, record_id)
-    #    search['per_page'] = pagesize
-    #    if search:
-    #        uri += '?{}'.format(urllib.urlencode(search))
-    #        self.logger.debug('add search paramter: {}'.format(uri))
-    #    return uri
-
 
     def _check_response(self, response, record_type):
         results = []
@@ -147,6 +85,8 @@ class Samanage(object):
                 json_out = response.json()
                 self.logger.debug(json.dumps(json_out, indent=4))
                 self.logger.debug('Response Headers: {}'.format(response.headers))
+                # any record_type _should_ (hah!) have been created during call to 
+                # _uri earlier
                 if type(json_out) is list:
                     for record in json_out:
                         results.append(self.supported_types.get(record_type, Record)(record))
