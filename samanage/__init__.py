@@ -7,8 +7,6 @@ import logging
 import argparse
 import requests
 import inspect
-import re
-from pprint import pprint
 
 class Record(object):
     def __init__(self, json_payload):
@@ -25,7 +23,7 @@ class Record(object):
     def dumps(self):
         return json.dumps(self, 
                 default=lambda o: {k: v for k,v in o.__dict__.items() if v})
-
+'''
 class CatalogItems(Record):
     pass
 
@@ -47,6 +45,7 @@ class Incident(Record):
         self.description         = json_payload.get('description', '')
         self.description_no_html = json_payload.get('description_no_html', '')
         self.requester           = json_payload.get('requester', '')
+'''
 
 #class User(Record):
 #    def __init__(self, json_payload):
@@ -55,39 +54,42 @@ class Incident(Record):
 #        self.department = json_payload.get('department', '')
 #        self.email      = json_payload.get('email', '')
 
-class Hardware(Record):
-    def __init__(self, json_payload):
-        super(Hardware, self).__init__(json_payload)
-        self.bio               = [{'ssn': ''}]
-        self.address           = json_payload.get('address', '')
-        self.asset_tag         = json_payload.get('asset_tag', '')
-        self.category          = json_payload.get('category', '')
-        self.department        = json_payload.get('department', '')
-        self.description       = json_payload.get('description', '')
-        self.domain            = json_payload.get('domain', '')
-        self.ip                = json_payload.get('ip', '')
-        self.latitude          = json_payload.get('latitude', '')
-        self.longitude         = json_payload.get('longitude', '')
-        self.networks          = json_payload.get('networks', '')
-        self.notes             = json_payload.get('notes', '')
-        self.owner             = json_payload.get('owner', '')
-        self.status            = json_payload.get('status', '')
-        self.technical_contact = json_payload.get('technical_contact', '')
-        self.username          = json_payload.get('username', '')
+#class Hardware(Record):
+#    def __init__(self, json_payload):
+#        super(Hardware, self).__init__(json_payload)
+#        self.bio               = [{'ssn': ''}]
+#        self.address           = json_payload.get('address', '')
+#        self.asset_tag         = json_payload.get('asset_tag', '')
+#        self.category          = json_payload.get('category', '')
+#        self.department        = json_payload.get('department', '')
+#        self.description       = json_payload.get('description', '')
+#        self.domain            = json_payload.get('domain', '')
+#        self.ip                = json_payload.get('ip', '')
+#        self.latitude          = json_payload.get('latitude', '')
+#        self.longitude         = json_payload.get('longitude', '')
+#        self.networks          = json_payload.get('networks', '')
+#        self.notes             = json_payload.get('notes', '')
+#        self.owner             = json_payload.get('owner', '')
+#        self.status            = json_payload.get('status', '')
+#        self.technical_contact = json_payload.get('technical_contact', '')
+#        self.username          = json_payload.get('username', '')
 
-    def get_incidents(self, client):
-        '''get a list of incidents using the client passed'''
-        uri = '{}/hardwares/{}-{}/incidents.json'.format(
-                client.uri, self.id, self.name.replace('.','-'))
-        return client._get_raw(uri, 'incidents')
+def get_incidents(self, client):
+    '''get a list of incidents using the client passed'''
+    uri = '{}/hardwares/{}-{}/incidents.json'.format(
+            client.uri, self.id, self.name.replace('.','-'))
+    return client._get_raw(uri, 'incidents')
 
-def record_factory ( obj_name, init_args={} ):
+def record_factory ( obj_name, init_args={}, methods={}):
+    '''creates classes for as-yet-undefined samanage record types'''
     def init ( self, payload ):
         init_args.update(payload)
         for key, value in init_args.items():
             setattr(self,key,value)
 
-    return type( obj_name, (Record,),{ '__init__': init} )
+    methods['__init__'] = init
+
+    return type( obj_name, (Record,),methods )
 
 
 class Samanage(object):
@@ -96,8 +98,8 @@ class Samanage(object):
             'hardwares': record_factory('Hardware'),
             'users': record_factory('User'),
             'departments': record_factory('Department'),
-            'catalog_items': CatalogItems,
-            'incidents': Incident,
+            'catalog_items': record_factory('CatalogItems'),
+            'incidents': record_factory('Incidents',methods = { 'get_incidents' : get_incidents }),
             'categories' : record_factory('Categories'),
             }
 
@@ -210,8 +212,7 @@ class Samanage(object):
     def post(self, record_type, payload):
         uri = self._uri(record_type)
         response = self.session.post(uri, json=self._payload(payload, record_type))
-        turn = self._check_response(response, record_type)
-        return turn
+        return self._check_response(response, record_type)
 
 def main():
     parser = argparse.ArgumentParser(description='dns spoof monitoring script')
