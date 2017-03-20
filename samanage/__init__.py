@@ -11,6 +11,7 @@ import inspect
 '''
 TODO: 
  - Handle awkward things with non-standard URIs
+ - Oh... object will have only attribues of the first hash passed to it... I think
 '''
 
 class Record(object):
